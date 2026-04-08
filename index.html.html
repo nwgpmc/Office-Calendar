@@ -850,8 +850,8 @@ function startAuth() {
   if (!gapiLoaded) { showError('Library still loading, please wait.'); return; }
   localStorage.setItem('cmdcal_client_id', clientId);
 
-  // Build redirect URI — the exact URL of this page without hash
-  const redirectUri = window.location.href.split('#')[0].split('?')[0];
+  // Hardcoded redirect URI — must match exactly what's in Google Console
+  const redirectUri = 'https://nwgpmc.github.io/Office-Calendar/';
 
   const params = new URLSearchParams({
     client_id: clientId,
