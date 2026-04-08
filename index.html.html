@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Command Calendar</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+  /* ── RESET & BASE ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0a0c10;
+    --surface:   #111318;
+    --surface2:  #181b22;
+    --border:    rgba(255,255,255,0.07);
+    --border2:   rgba(255,255,255,0.13);
+    --text:      #e8eaf0;
+    --muted:     #6b7180;
+    --accent:    #c8f060;
+    --accent2:   #60c8f0;
+    --font-head: 'Syne', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    overflow: hidden;
+  }
+
+  /* ── LAYOUT ── */
+  #app {
+    display: grid;
+    grid-template-rows: 72px 1fr;
+    grid-template-columns: 1fr 420px;
+    height: 100vh;
+    gap: 0;
+  }
+
+  /* ── HEADER ── */
+  #header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: relative;
+  }
+
+  #header::after {
+    content: '';
+    position: absolute;
+    bottom: -2px; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.4;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .logo {
+    font-family: var(--font-head);
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--accent);
+  }
+
+  .logo span {
+    color: var(--text);
+    font-weight: 400;
+  }
+
+  #clock {
+    font-size: 26px;
+    font-weight: 300;
+    letter-spacing: 2px;
+    color: var(--text);
+  }
+
+  #date-display {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  /* ── LEGEND ── */
+  #legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ── REFRESH ── */
+  #refresh-status {
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: 0.5px;
+  }
+
+  #refresh-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  #refresh-dot.syncing {
+    background: var(--accent2);
+    animation: spin-dot 0.8s linear infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  @keyframes spin-dot {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.5); opacity: 0.5; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* ── CONNECT PANEL ── */
+  #connect-panel {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    padding: 40px;
+  }
+
+  #connect-panel h2 {
+    font-family: var(--font-head);
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .setup-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 560px;
+    width: 100%;
+  }
+
+  .step {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 16px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+
+  .step-num {
+    font-family: var(--font-head);
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--accent);
+    min-width: 28px;
+    line-height: 1;
+  }
+
+  .step-body { flex: 1; }
+  .step-body strong { color: var(--text); display: block; margin-bottom: 4px; font-size: 14px; }
+  .step-body p { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+  .api-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 560px;
+    width: 100%;
+  }
+
+  .api-inputs input {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .api-inputs input:focus { border-color: var(--accent); }
+  .api-inputs input::placeholder { color: var(--muted); }
+
+  #connect-btn {
+    background: var(--accent);
+    color: #0a0c10;
+    border: none;
+    border-radius: 8px;
+    padding: 14px 32px;
+    font-family: var(--font-head);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+
+  #connect-btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+  #connect-btn:active:not(:disabled) { transform: translateY(0); }
+  #connect-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  #lib-status {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    min-height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  #connect-error {
+    font-size: 12px;
+    color: #f07060;
+    text-align: center;
+    min-height: 18px;
+  }
+
+  /* ── CALENDAR GRID PANEL ── */
+  #cal-panel {
+    padding: 28px 28px 20px 32px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .cal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .cal-title {
+    font-family: var(--font-head);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.5px;
+  }
+
+  .cal-nav {
+    display: flex;
+    gap: 8px;
+  }
+
+  .cal-nav button {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+  }
+
+  .cal-nav button:hover { color: var(--accent); border-color: var(--accent); }
+
+  .cal-days-header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    margin-bottom: 6px;
+  }
+
+  .cal-day-label {
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 4px 0;
+  }
+
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    grid-template-rows: repeat(6, 1fr);
+    gap: 2px;
+    flex: 1;
+  }
+
+  .cal-cell {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 7px 5px;
+    overflow: hidden;
+    cursor: default;
+    transition: border-color 0.15s;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .cal-cell:hover { border-color: var(--border2); }
+
+  .cal-cell.other-month {
+    background: transparent;
+    border-color: transparent;
+  }
+
+  .cal-cell.other-month .cell-num { color: #333; }
+
+  .cal-cell.today {
+    border-color: var(--accent);
+    background: rgba(200, 240, 96, 0.05);
+  }
+
+  .cal-cell.today .cell-num {
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .cell-num {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 3px;
+    flex-shrink: 0;
+  }
+
+  .cell-events {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .cell-evt {
+    font-size: 10px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    flex-shrink: 0;
+  }
+
+  .cell-evt:hover { opacity: 0.75; }
+
+  .cell-more {
+    font-size: 10px;
+    color: var(--muted);
+    padding: 1px 4px;
+    flex-shrink: 0;
+  }
+
+  /* ── AGENDA PANEL ── */
+  #agenda-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--surface);
+  }
+
+  .agenda-header {
+    padding: 28px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .agenda-title {
+    font-family: var(--font-head);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+
+  .agenda-sub {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  #agenda-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 0;
+  }
+
+  #agenda-list::-webkit-scrollbar { width: 3px; }
+  #agenda-list::-webkit-scrollbar-track { background: transparent; }
+  #agenda-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .agenda-date-group { margin-bottom: 4px; }
+
+  .agenda-date-label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 10px 24px 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .agenda-date-label.today-label { color: var(--accent); }
+
+  .agenda-date-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .agenda-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 24px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-left: 2px solid transparent;
+  }
+
+  .agenda-item:hover {
+    background: var(--surface2);
+  }
+
+  .agenda-color-bar {
+    width: 3px;
+    border-radius: 2px;
+    align-self: stretch;
+    flex-shrink: 0;
+    min-height: 20px;
+  }
+
+  .agenda-item-body { flex: 1; min-width: 0; }
+
+  .agenda-evt-title {
+    font-size: 13px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 3px;
+    font-weight: 400;
+  }
+
+  .agenda-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .agenda-time {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.3px;
+  }
+
+  .evt-type-badge {
+    font-size: 10px;
+    padding: 1px 7px;
+    border-radius: 20px;
+    letter-spacing: 0.3px;
+    font-weight: 500;
+  }
+
+  .agenda-cal-name {
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  #no-events {
+    padding: 40px 24px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  /* ── EVENT DETAIL MODAL ── */
+  #modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #modal-overlay.open { display: flex; }
+
+  #modal {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 14px;
+    padding: 32px 36px;
+    max-width: 480px;
+    width: 90%;
+    position: relative;
+  }
+
+  .modal-color-strip {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    border-radius: 14px 14px 0 0;
+  }
+
+  #modal h2 {
+    font-family: var(--font-head);
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: var(--text);
+    padding-top: 8px;
+  }
+
+  .modal-field {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  .modal-field .icon { font-size: 16px; flex-shrink: 0; width: 20px; text-align: center; }
+  .modal-field .val { color: var(--text); line-height: 1.5; }
+
+  #modal-close {
+    position: absolute;
+    top: 14px; right: 16px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 20px;
+    cursor: pointer;
+    line-height: 1;
+    transition: color 0.15s;
+  }
+
+  #modal-close:hover { color: var(--text); }
+
+  /* ── LOADING ── */
+  #loading-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(10,12,16,0.85);
+    z-index: 300;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  #loading-overlay.open { display: flex; }
+
+  .loader-ring {
+    width: 48px; height: 48px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loader-text {
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  /* ── ANIMATIONS ── */
+  .fade-in { animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- HEADER -->
+  <header id="header">
+    <div class="header-left">
+      <div class="logo">CMD<span>CAL</span></div>
+      <div>
+        <div id="clock">00:00:00</div>
+        <div id="date-display">Loading...</div>
+      </div>
+    </div>
+    <div id="legend"></div>
+    <div class="header-right">
+      <div id="refresh-status">
+        <div id="refresh-dot"></div>
+        <span id="refresh-label">not connected</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- CONNECT PANEL (shown before auth) -->
+  <div id="connect-panel">
+    <h2>Connect Google Calendar</h2>
+    <div class="setup-steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <strong>Create a Google Cloud project &amp; enable Calendar API</strong>
+          <p>Go to console.cloud.google.com → New Project → APIs &amp; Services → Enable "Google Calendar API"</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <strong>Create an OAuth 2.0 Client ID</strong>
+          <p>APIs &amp; Services → Credentials → Create Credentials → OAuth Client ID → Web Application. Add <code style="color:var(--accent)">http://localhost</code> and the URL where you host this file to Authorized JS Origins.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <strong>Add your redirect URI in Google Console</strong>
+          <p>In your OAuth Client ID settings → <strong>Authorized Redirect URIs</strong> → add the exact path to this HTML file. If opening locally use <code style="color:var(--accent)">file:///C:/path/to/office-calendar.html</code>. If hosted on a server use that URL instead.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <strong>Share all business calendars to one primary Google account</strong>
+          <p>In each business Google account → Calendar Settings → Share with specific people → add your primary account email with "See all event details".</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <strong>Paste your Client ID below and connect</strong>
+          <p>Clicking Connect will redirect you to Google sign-in, then bring you straight back to the calendar.</p>
+        </div>
+      </div>
+    </div>
+    <div class="api-inputs">
+      <input type="text" id="client-id-input" placeholder="Paste your OAuth Client ID here  (ends in .apps.googleusercontent.com)" />
+    </div>
+    <div id="lib-status"><span class="spinner" style="width:12px;height:12px;border-width:1.5px"></span> Loading Google libraries...</div>
+    <div id="connect-error"></div>
+    <button id="connect-btn" onclick="startAuth()" disabled>Connect &amp; Sign In ↗</button>
+  </div>
+
+  <!-- CALENDAR PANEL (hidden until authed) -->
+  <div id="cal-panel" style="display:none">
+    <div class="cal-header">
+      <div class="cal-title" id="cal-title">April 2026</div>
+      <div class="cal-nav">
+        <button onclick="changeMonth(-1)">&#8592;</button>
+        <button onclick="changeMonth(1)">&#8594;</button>
+      </div>
+    </div>
+    <div class="cal-days-header">
+      <div class="cal-day-label">Sun</div>
+      <div class="cal-day-label">Mon</div>
+      <div class="cal-day-label">Tue</div>
+      <div class="cal-day-label">Wed</div>
+      <div class="cal-day-label">Thu</div>
+      <div class="cal-day-label">Fri</div>
+      <div class="cal-day-label">Sat</div>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+  </div>
+
+  <!-- AGENDA PANEL (hidden until authed) -->
+  <div id="agenda-panel" style="display:none">
+    <div class="agenda-header">
+      <div class="agenda-title">Upcoming</div>
+      <div class="agenda-sub" id="agenda-sub">Next 30 days</div>
+    </div>
+    <div id="agenda-list"></div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- LOADING OVERLAY -->
+<div id="loading-overlay">
+  <div class="loader-ring"></div>
+  <div class="loader-text" id="loading-text">Loading calendars...</div>
+</div>
+
+<!-- EVENT DETAIL MODAL -->
+<div id="modal-overlay" onclick="closeModal(event)">
+  <div id="modal">
+    <div class="modal-color-strip" id="modal-strip"></div>
+    <button id="modal-close" onclick="closeModal()">&#x2715;</button>
+    <h2 id="modal-title"></h2>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+/* ── CONFIG ── */
+const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
+const DISCOVERY = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
+const REFRESH_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+const AGENDA_DAYS = 30;
+
+/* ── PALETTE: assign colors per calendar ── */
+const CAL_COLORS = [
+  '#60c8f0','#c8f060','#f0a060','#f060a0','#a060f0','#60f0a0','#f06060','#60a0f0'
+];
+
+/* Event type detection */
+const EVENT_TYPES = [
+  { key: 'booking',   label: 'Booking',   color: '#60c8f0', keywords: ['booking','appointment','appt','session','client','consult'] },
+  { key: 'deadline',  label: 'Deadline',  color: '#f06060', keywords: ['deadline','due','submit','deliver','launch','ship'] },
+  { key: 'meeting',   label: 'Meeting',   color: '#a060f0', keywords: ['meeting','call','sync','standup','review','interview','zoom','teams','meet'] },
+  { key: 'task',      label: 'Task',      color: '#f0a060', keywords: ['task','todo','follow up','follow-up','action','reminder'] },
+  { key: 'travel',    label: 'Travel',    color: '#c8f060', keywords: ['travel','flight','hotel','trip','drive','transit'] },
+  { key: 'other',     label: 'Other',     color: '#6b7180', keywords: [] }
+];
+
+function detectType(title='', desc='') {
+  const t = (title + ' ' + desc).toLowerCase();
+  for (const et of EVENT_TYPES) {
+    if (et.key === 'other') continue;
+    if (et.keywords.some(k => t.includes(k))) return et;
+  }
+  return EVENT_TYPES[EVENT_TYPES.length - 1];
+}
+
+/* ── STATE ── */
+let gapiLoaded = false;
+let gisLoaded  = false;
+let tokenClient = null;
+let allEvents = [];
+let calendars = [];
+let calColorMap = {};
+let viewDate = new Date();
+viewDate.setDate(1);
+let lastRefresh = null;
+let refreshTimer = null;
+
+/* ── CLOCK ── */
+function tickClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  document.getElementById('date-display').textContent =
+    now.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).toUpperCase();
+}
+setInterval(tickClock, 1000);
+tickClock();
+
+/* ── GAPI LOAD (only needs apis.google.com) ── */
+function gapiInit() {
+  gapi.load('client', async () => {
+    await gapi.client.init({ discoveryDocs: [DISCOVERY] });
+    gapiLoaded = true;
+    gisLoaded = true; // not needed in redirect flow
+    maybeEnableConnect();
+  });
+}
+
+function gisInit() { /* not used in redirect flow */ }
+
+function maybeEnableConnect() {
+  const btn = document.getElementById('connect-btn');
+  const status = document.getElementById('lib-status');
+  if (gapiLoaded) {
+    // Check if we're returning from OAuth redirect with a token in the URL hash
+    const hash = window.location.hash;
+    const params = new URLSearchParams(hash.replace('#','?').replace('??','?'));
+    const token = params.get('access_token');
+    if (token) {
+      status.innerHTML = '<span style="color:var(--accent)">&#10003; Authenticated — loading calendars...</span>';
+      btn.disabled = true;
+      gapi.client.setToken({ access_token: token });
+      // restore saved client id
+      const savedId = localStorage.getItem('cmdcal_client_id');
+      if (savedId) document.getElementById('client-id-input').value = savedId;
+      showCalView();
+      loadAll().then(scheduleRefresh);
+      // clean token from URL
+      history.replaceState(null, '', window.location.pathname);
+      return;
+    }
+    btn.disabled = false;
+    status.innerHTML = '<span style="color:var(--accent)">&#10003; Ready to connect</span>';
+  } else {
+    status.innerHTML = '<span class="spinner" style="width:12px;height:12px;border-width:1.5px;display:inline-block"></span> Loading Google library...';
+  }
+}
+
+/* ── AUTH — pure OAuth2 implicit redirect, no GIS needed ── */
+function startAuth() {
+  const clientId = document.getElementById('client-id-input').value.trim();
+  if (!clientId) { showError('Please paste your OAuth Client ID first.'); return; }
+  if (!gapiLoaded) { showError('Library still loading, please wait.'); return; }
+  localStorage.setItem('cmdcal_client_id', clientId);
+
+  // Build redirect URI — the exact URL of this page without hash
+  const redirectUri = window.location.href.split('#')[0].split('?')[0];
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: 'token',
+    scope: SCOPES,
+    include_granted_scopes: 'true',
+    prompt: 'consent',
+  });
+
+  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+}
+
+function initTokenClient() { /* not used in redirect flow */ }
+
+function showError(msg) {
+  document.getElementById('connect-error').textContent = msg;
+}
+
+/* ── SHOW CALENDAR VIEW ── */
+function showCalView() {
+  document.getElementById('connect-panel').style.display = 'none';
+  document.getElementById('cal-panel').style.display = 'flex';
+  document.getElementById('agenda-panel').style.display = 'flex';
+}
+
+/* ── LOAD ALL CALENDARS + EVENTS ── */
+async function loadAll() {
+  setLoading(true, 'Fetching calendars...');
+  setRefreshStatus('syncing', 'Syncing...');
+  try {
+    await loadCalendars();
+    setLoading(true, 'Loading events...');
+    await loadEvents();
+    renderLegend();
+    renderCalGrid();
+    renderAgenda();
+    lastRefresh = new Date();
+    setRefreshStatus('live', 'Live · updated ' + lastRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+  } catch(e) {
+    console.error(e);
+    setRefreshStatus('err', 'Error loading');
+  }
+  setLoading(false);
+}
+
+async function loadCalendars() {
+  const res = await gapi.client.calendar.calendarList.list({ minAccessRole: 'reader' });
+  const items = res.result.items || [];
+  calendars = items;
+  calColorMap = {};
+  items.forEach((cal, i) => {
+    calColorMap[cal.id] = CAL_COLORS[i % CAL_COLORS.length];
+  });
+}
+
+async function loadEvents() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const end   = new Date(now.getFullYear(), now.getMonth() + 4, 0);
+
+  const promises = calendars.map(cal =>
+    gapi.client.calendar.events.list({
+      calendarId: cal.id,
+      timeMin: start.toISOString(),
+      timeMax: end.toISOString(),
+      singleEvents: true,
+      orderBy: 'startTime',
+      maxResults: 500,
+    }).then(r => (r.result.items || []).map(evt => ({
+      id: evt.id,
+      title: evt.summary || '(no title)',
+      start: evt.start.dateTime || evt.start.date,
+      end:   evt.end.dateTime   || evt.end.date,
+      allDay: !evt.start.dateTime,
+      location: evt.location || '',
+      description: evt.description || '',
+      calId: cal.id,
+      calName: cal.summary,
+      color: calColorMap[cal.id],
+      type: detectType(evt.summary, evt.description),
+    })))
+  );
+
+  const results = await Promise.all(promises);
+  allEvents = results.flat();
+  allEvents.sort((a, b) => new Date(a.start) - new Date(b.start));
+}
+
+/* ── CALENDAR GRID ── */
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function renderCalGrid() {
+  const title = MONTHS[viewDate.getMonth()] + ' ' + viewDate.getFullYear();
+  document.getElementById('cal-title').textContent = title;
+
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = '';
+
+  const year = viewDate.getFullYear(), month = viewDate.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const prevDays = new Date(year, month, 0).getDate();
+  const today = new Date();
+  const totalCells = 42;
+
+  for (let i = 0; i < totalCells; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cal-cell fade-in';
+
+    let cellDate, otherMonth = false;
+    if (i < firstDay) {
+      cellDate = new Date(year, month - 1, prevDays - firstDay + 1 + i);
+      otherMonth = true;
+    } else if (i >= firstDay + daysInMonth) {
+      cellDate = new Date(year, month + 1, i - firstDay - daysInMonth + 1);
+      otherMonth = true;
+    } else {
+      cellDate = new Date(year, month, i - firstDay + 1);
+    }
+
+    if (otherMonth) cell.classList.add('other-month');
+    const isToday = cellDate.toDateString() === today.toDateString();
+    if (isToday) cell.classList.add('today');
+
+    const num = document.createElement('div');
+    num.className = 'cell-num';
+    num.textContent = cellDate.getDate();
+    cell.appendChild(num);
+
+    const evtsDiv = document.createElement('div');
+    evtsDiv.className = 'cell-events';
+
+    const dayStr = toDateStr(cellDate);
+    const dayEvts = allEvents.filter(e => toDateStr(new Date(e.allDay ? e.start + 'T12:00:00' : e.start)) === dayStr);
+
+    const maxShow = 3;
+    dayEvts.slice(0, maxShow).forEach(evt => {
+      const el = document.createElement('div');
+      el.className = 'cell-evt';
+      el.style.background = evt.color + '28';
+      el.style.color = evt.color;
+      el.textContent = evt.title;
+      el.onclick = () => openModal(evt);
+      evtsDiv.appendChild(el);
+    });
+
+    if (dayEvts.length > maxShow) {
+      const more = document.createElement('div');
+      more.className = 'cell-more';
+      more.textContent = '+' + (dayEvts.length - maxShow) + ' more';
+      evtsDiv.appendChild(more);
+    }
+
+    cell.appendChild(evtsDiv);
+    grid.appendChild(cell);
+  }
+}
+
+function changeMonth(dir) {
+  viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth() + dir, 1);
+  renderCalGrid();
+}
+
+/* ── AGENDA ── */
+function renderAgenda() {
+  const list = document.getElementById('agenda-list');
+  list.innerHTML = '';
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const endDate = new Date(today);
+  endDate.setDate(endDate.getDate() + AGENDA_DAYS);
+
+  const upcoming = allEvents.filter(e => {
+    const d = new Date(e.allDay ? e.start + 'T12:00:00' : e.start);
+    return d >= today && d <= endDate;
+  });
+
+  document.getElementById('agenda-sub').textContent = `${upcoming.length} events · next ${AGENDA_DAYS} days`;
+
+  if (upcoming.length === 0) {
+    list.innerHTML = '<div id="no-events">No upcoming events</div>';
+    return;
+  }
+
+  let lastDateStr = '';
+  upcoming.forEach(evt => {
+    const evtDate = new Date(evt.allDay ? evt.start + 'T12:00:00' : evt.start);
+    const dateStr = evtDate.toDateString();
+    const isToday = dateStr === today.toDateString();
+
+    if (dateStr !== lastDateStr) {
+      lastDateStr = dateStr;
+      const label = document.createElement('div');
+      label.className = 'agenda-date-label' + (isToday ? ' today-label' : '');
+      label.textContent = isToday
+        ? 'Today'
+        : evtDate.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
+      list.appendChild(label);
+    }
+
+    const item = document.createElement('div');
+    item.className = 'agenda-item';
+    item.onclick = () => openModal(evt);
+
+    const bar = document.createElement('div');
+    bar.className = 'agenda-color-bar';
+    bar.style.background = evt.color;
+
+    const body = document.createElement('div');
+    body.className = 'agenda-item-body';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'agenda-evt-title';
+    titleEl.textContent = evt.title;
+
+    const meta = document.createElement('div');
+    meta.className = 'agenda-meta';
+
+    const timeEl = document.createElement('div');
+    timeEl.className = 'agenda-time';
+    timeEl.textContent = evt.allDay
+      ? 'All day'
+      : evtDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const badge = document.createElement('div');
+    badge.className = 'evt-type-badge';
+    badge.textContent = evt.type.label;
+    badge.style.background = evt.type.color + '28';
+    badge.style.color = evt.type.color;
+
+    const calLabel = document.createElement('div');
+    calLabel.className = 'agenda-cal-name';
+    calLabel.textContent = evt.calName;
+
+    meta.appendChild(timeEl);
+    meta.appendChild(badge);
+    meta.appendChild(calLabel);
+    body.appendChild(titleEl);
+    body.appendChild(meta);
+
+    item.appendChild(bar);
+    item.appendChild(body);
+    list.appendChild(item);
+  });
+}
+
+/* ── LEGEND ── */
+function renderLegend() {
+  const lg = document.getElementById('legend');
+  lg.innerHTML = '';
+  calendars.slice(0, 8).forEach(cal => {
+    const el = document.createElement('div');
+    el.className = 'legend-item';
+    el.innerHTML = `<div class="legend-dot" style="background:${calColorMap[cal.id]}"></div>${cal.summary}`;
+    lg.appendChild(el);
+  });
+}
+
+/* ── MODAL ── */
+function openModal(evt) {
+  document.getElementById('modal-strip').style.background = evt.color;
+  document.getElementById('modal-title').textContent = evt.title;
+
+  const evtDate = new Date(evt.allDay ? evt.start + 'T12:00:00' : evt.start);
+  const dateStr = evtDate.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  const timeStr = evt.allDay ? 'All day' : evtDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  let html = `
+    <div class="modal-field"><span class="icon">&#128337;</span><span class="val">${dateStr} &mdash; ${timeStr}</span></div>
+    <div class="modal-field"><span class="icon">&#128197;</span><span class="val" style="color:${evt.color}">${evt.calName}</span></div>
+    <div class="modal-field"><span class="icon">&#127991;</span><span class="val">
+      <span class="evt-type-badge" style="background:${evt.type.color}28;color:${evt.type.color}">${evt.type.label}</span>
+    </span></div>
+  `;
+  if (evt.location) html += `<div class="modal-field"><span class="icon">&#128205;</span><span class="val">${evt.location}</span></div>`;
+  if (evt.description) {
+    const clean = evt.description.replace(/<[^>]+>/g, '');
+    html += `<div class="modal-field"><span class="icon">&#128221;</span><span class="val" style="font-size:13px;line-height:1.6">${clean.slice(0, 300)}${clean.length > 300 ? '…' : ''}</span></div>`;
+  }
+
+  document.getElementById('modal-body').innerHTML = html;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modal-overlay') && e.target !== document.getElementById('modal-close')) return;
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+/* ── AUTO REFRESH ── */
+function scheduleRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(async () => {
+    await loadAll();
+  }, REFRESH_INTERVAL_MS);
+}
+
+/* ── UTILITIES ── */
+function toDateStr(d) {
+  return d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
+}
+
+function setLoading(show, msg = '') {
+  const ol = document.getElementById('loading-overlay');
+  ol.classList.toggle('open', show);
+  if (msg) document.getElementById('loading-text').textContent = msg;
+}
+
+function setRefreshStatus(state, label) {
+  const dot = document.getElementById('refresh-dot');
+  document.getElementById('refresh-label').textContent = label;
+  dot.className = state === 'syncing' ? 'syncing' : '';
+  if (state === 'live') dot.style.background = 'var(--accent)';
+  if (state === 'err')  dot.style.background = '#f06060';
+}
+
+/* ── ON LOAD: restore saved client ID ── */
+window.addEventListener('load', () => {
+  const saved = localStorage.getItem('cmdcal_client_id');
+  if (saved) document.getElementById('client-id-input').value = saved;
+});
+</script>
+
+<!-- Only needs the Google API client library now -->
+<script src="https://apis.google.com/js/api.js" onload="gapiInit()" onerror="document.getElementById('lib-status').innerHTML='<span style=color:#f06060>&#x26A0; Failed to load Google API. Check internet and reload.</span>'"></script>
+
+</body>
+</html>
